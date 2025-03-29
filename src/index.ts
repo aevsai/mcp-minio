@@ -9,11 +9,11 @@ const server = new McpServer({
 });
 
 const minioClient = new Client({
-  endPoint: process.env.MINIO_ENDPOINT ?? "play.min.io",
+  endPoint: process.env.MINIO_ENDPOINT ?? "localhost",
   port: 9000,
   useSSL: process.env.MINIO_SSL === "true",
-  accessKey: process.env.MINIO_ROOT_USER,
-  secretKey: process.env.MINIO_ROOT_PASSWORD,
+  accessKey: process.env.MINIO_ROOT_USER ?? "minioadmin",
+  secretKey: process.env.MINIO_ROOT_PASSWORD ?? "minioadmin",
 });
 
 // Example function to upload a file using Blob
@@ -26,19 +26,41 @@ export async function uploadFile(
   console.log("File uploaded successfully.");
 }
 
-// Example function to get a file from a bucket
-export async function getFile(bucketName: string, objectName: string) {
+// Example function to get file content from a bucket
+export async function getFileContent(
+  bucketName: string,
+  objectName: string,
+): Promise<string> {
   const stream = await minioClient.getObject(bucketName, objectName);
-  let data = "";
-  stream.on("data", (chunk) => {
-    data += chunk;
+  return new Promise((resolve, reject) => {
+    let data = "";
+    stream.on("data", (chunk) => {
+      data += chunk;
+    });
+    stream.on("end", () => {
+      console.log("File content retrieved successfully.");
+      resolve(data);
+    });
+    stream.on("error", (err) => {
+      console.log("Error in retrieving file content:", err);
+      reject(err);
+    });
   });
-  stream.on("end", () => {
-    console.log("File retrieved successfully.");
-  });
-  stream.on("error", (err) => {
-    console.log("Error in retrieving file:", err);
-  });
+}
+
+// Example function to get a file URL from a bucket
+export async function getFileUrl(
+  bucketName: string,
+  objectName: string,
+): Promise<string> {
+  try {
+    const url = await minioClient.presignedUrl("GET", bucketName, objectName);
+    console.log("File URL retrieved successfully:", url);
+    return url;
+  } catch (error) {
+    console.log("Error in retrieving file URL:", error);
+    throw error;
+  }
 }
 
 // Function to create a new bucket
@@ -59,6 +81,27 @@ export async function getBuckets() {
   return buckets;
 }
 
+// Function to list files in a bucket
+export async function listFiles(bucketName: string) {
+  const stream = minioClient.listObjects(bucketName, "", true);
+  const files: string[] = [];
+  return new Promise<string[]>((resolve, reject) => {
+    stream.on("data", (obj) => {
+      if (obj.name) {
+        files.push(obj.name);
+      }
+    });
+    stream.on("end", () => {
+      console.log("Files listed successfully.");
+      resolve(files);
+    });
+    stream.on("error", (err) => {
+      console.log("Error in listing files:", err);
+      reject(err);
+    });
+  });
+}
+
 server.tool(
   "uploadFile",
   {
@@ -73,15 +116,29 @@ server.tool(
 );
 
 server.tool(
-  "getFile",
+  "getFileContent",
   {
     bucketName: z.string(),
     objectName: z.string(),
   },
   async ({ bucketName, objectName }) => {
-    await getFile(bucketName, objectName);
+    const content = await getFileContent(bucketName, objectName);
     return {
-      content: [{ type: "text", text: "File retrieved successfully." }],
+      content: [{ type: "text", text: content }],
+    };
+  },
+);
+
+server.tool(
+  "getFileUrl",
+  {
+    bucketName: z.string(),
+    objectName: z.string(),
+  },
+  async ({ bucketName, objectName }) => {
+    const url = await getFileUrl(bucketName, objectName);
+    return {
+      content: [{ type: "text", text: `File URL: ${url}` }],
     };
   },
 );
@@ -108,6 +165,24 @@ server.tool("getBuckets", {}, async () => {
     ],
   };
 });
+
+server.tool(
+  "listFiles",
+  {
+    bucketName: z.string(),
+  },
+  async ({ bucketName }) => {
+    const files = await listFiles(bucketName);
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Files retrieved successfully: ${JSON.stringify(files)}`,
+        },
+      ],
+    };
+  },
+);
 
 async function main() {
   const transport = new StdioServerTransport();

@@ -1,9 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.uploadFile = uploadFile;
-exports.getFile = getFile;
+exports.getFileContent = getFileContent;
+exports.getFileUrl = getFileUrl;
 exports.createBucket = createBucket;
 exports.getBuckets = getBuckets;
+exports.listFiles = listFiles;
 const mcp_js_1 = require("@modelcontextprotocol/sdk/server/mcp.js");
 const zod_1 = require("zod");
 const minio_1 = require("minio");
@@ -13,30 +15,46 @@ const server = new mcp_js_1.McpServer({
     version: "1.0.0",
 });
 const minioClient = new minio_1.Client({
-    endPoint: process.env.MINIO_ENDPOINT ?? "play.min.io",
+    endPoint: process.env.MINIO_ENDPOINT ?? "localhost",
     port: 9000,
     useSSL: process.env.MINIO_SSL === "true",
-    accessKey: process.env.MINIO_ROOT_USER,
-    secretKey: process.env.MINIO_ROOT_PASSWORD,
+    accessKey: process.env.MINIO_ROOT_USER ?? "minioadmin",
+    secretKey: process.env.MINIO_ROOT_PASSWORD ?? "minioadmin",
 });
 // Example function to upload a file using Blob
 async function uploadFile(bucketName, objectName, buffer) {
     await minioClient.putObject(bucketName, objectName, buffer);
     console.log("File uploaded successfully.");
 }
-// Example function to get a file from a bucket
-async function getFile(bucketName, objectName) {
+// Example function to get file content from a bucket
+async function getFileContent(bucketName, objectName) {
     const stream = await minioClient.getObject(bucketName, objectName);
-    let data = "";
-    stream.on("data", (chunk) => {
-        data += chunk;
+    return new Promise((resolve, reject) => {
+        let data = "";
+        stream.on("data", (chunk) => {
+            data += chunk;
+        });
+        stream.on("end", () => {
+            console.log("File content retrieved successfully.");
+            resolve(data);
+        });
+        stream.on("error", (err) => {
+            console.log("Error in retrieving file content:", err);
+            reject(err);
+        });
     });
-    stream.on("end", () => {
-        console.log("File retrieved successfully.");
-    });
-    stream.on("error", (err) => {
-        console.log("Error in retrieving file:", err);
-    });
+}
+// Example function to get a file URL from a bucket
+async function getFileUrl(bucketName, objectName) {
+    try {
+        const url = await minioClient.presignedUrl("GET", bucketName, objectName);
+        console.log("File URL retrieved successfully:", url);
+        return url;
+    }
+    catch (error) {
+        console.log("Error in retrieving file URL:", error);
+        throw error;
+    }
 }
 // Function to create a new bucket
 async function createBucket(bucketName) {
@@ -55,6 +73,26 @@ async function getBuckets() {
     console.log("Buckets retrieved successfully:", buckets);
     return buckets;
 }
+// Function to list files in a bucket
+async function listFiles(bucketName) {
+    const stream = minioClient.listObjects(bucketName, "", true);
+    const files = [];
+    return new Promise((resolve, reject) => {
+        stream.on("data", (obj) => {
+            if (obj.name) {
+                files.push(obj.name);
+            }
+        });
+        stream.on("end", () => {
+            console.log("Files listed successfully.");
+            resolve(files);
+        });
+        stream.on("error", (err) => {
+            console.log("Error in listing files:", err);
+            reject(err);
+        });
+    });
+}
 server.tool("uploadFile", {
     bucketName: zod_1.z.string(),
     objectName: zod_1.z.string(),
@@ -63,13 +101,22 @@ server.tool("uploadFile", {
     await uploadFile(bucketName, objectName, Buffer.from(buffer));
     return { content: [{ type: "text", text: "File uploaded successfully." }] };
 });
-server.tool("getFile", {
+server.tool("getFileContent", {
     bucketName: zod_1.z.string(),
     objectName: zod_1.z.string(),
 }, async ({ bucketName, objectName }) => {
-    await getFile(bucketName, objectName);
+    const content = await getFileContent(bucketName, objectName);
     return {
-        content: [{ type: "text", text: "File retrieved successfully." }],
+        content: [{ type: "text", text: content }],
+    };
+});
+server.tool("getFileUrl", {
+    bucketName: zod_1.z.string(),
+    objectName: zod_1.z.string(),
+}, async ({ bucketName, objectName }) => {
+    const url = await getFileUrl(bucketName, objectName);
+    return {
+        content: [{ type: "text", text: `File URL: ${url}` }],
     };
 });
 server.tool("createBucket", { bucketName: zod_1.z.string() }, async ({ bucketName }) => {
@@ -85,6 +132,19 @@ server.tool("getBuckets", {}, async () => {
             {
                 type: "text",
                 text: `Buckets retrieved successfully: ${JSON.stringify(buckets)}`,
+            },
+        ],
+    };
+});
+server.tool("listFiles", {
+    bucketName: zod_1.z.string(),
+}, async ({ bucketName }) => {
+    const files = await listFiles(bucketName);
+    return {
+        content: [
+            {
+                type: "text",
+                text: `Files retrieved successfully: ${JSON.stringify(files)}`,
             },
         ],
     };
