@@ -1,6 +1,6 @@
 {
   "name": "mcp-minio",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -8,7 +8,7 @@
     "build": "tsc"
   },
   "bin": {
-    "mcp-minio": "build/mcp-minio"
+    "mcp-minio": "build/index.js"
   },
   "keywords": [],
   "author": "",
