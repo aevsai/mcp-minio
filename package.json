@@ -5,10 +5,10 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc && pkg . --out-path dist"
+    "build": "tsc"
   },
   "bin": {
-    "mcp-minio": "dist/mcp-minio"
+    "mcp-minio": "build/mcp-minio"
   },
   "keywords": [],
   "author": "",
