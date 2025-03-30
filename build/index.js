@@ -6,6 +6,7 @@ exports.getFileUrl = getFileUrl;
 exports.createBucket = createBucket;
 exports.getBuckets = getBuckets;
 exports.listFiles = listFiles;
+exports.deleteFile = deleteFile;
 const mcp_js_1 = require("@modelcontextprotocol/sdk/server/mcp.js");
 const zod_1 = require("zod");
 const minio_1 = require("minio");
@@ -93,6 +94,11 @@ async function listFiles(bucketName) {
         });
     });
 }
+// Function to delete a file from a bucket
+async function deleteFile(bucketName, objectName) {
+    await minioClient.removeObject(bucketName, objectName);
+    console.log("File deleted successfully.");
+}
 server.tool("uploadFile", {
     bucketName: zod_1.z.string(),
     objectName: zod_1.z.string(),
@@ -147,6 +153,15 @@ server.tool("listFiles", {
                 text: `Files retrieved successfully: ${JSON.stringify(files)}`,
             },
         ],
+    };
+});
+server.tool("deleteFile", {
+    bucketName: zod_1.z.string(),
+    objectName: zod_1.z.string(),
+}, async ({ bucketName, objectName }) => {
+    await deleteFile(bucketName, objectName);
+    return {
+        content: [{ type: "text", text: "File deleted successfully." }],
     };
 });
 async function main() {
