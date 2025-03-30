@@ -102,6 +102,12 @@ export async function listFiles(bucketName: string) {
   });
 }
 
+// Function to delete a file from a bucket
+export async function deleteFile(bucketName: string, objectName: string) {
+  await minioClient.removeObject(bucketName, objectName);
+  console.log("File deleted successfully.");
+}
+
 server.tool(
   "uploadFile",
   {
@@ -180,6 +186,20 @@ server.tool(
           text: `Files retrieved successfully: ${JSON.stringify(files)}`,
         },
       ],
+    };
+  },
+);
+
+server.tool(
+  "deleteFile",
+  {
+    bucketName: z.string(),
+    objectName: z.string(),
+  },
+  async ({ bucketName, objectName }) => {
+    await deleteFile(bucketName, objectName);
+    return {
+      content: [{ type: "text", text: "File deleted successfully." }],
     };
   },
 );
