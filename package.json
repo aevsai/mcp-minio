@@ -1,11 +1,11 @@
 {
   "name": "mcp-minio",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "",
   "main": "./build/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc"
+    "build": "tsc && echo '#!/usr/bin/env node' | cat - ./build/index.js > temp && mv temp ./build/index.js"
   },
   "bin": {
     "mcp-minio": "./build/index.js"
