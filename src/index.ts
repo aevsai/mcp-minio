@@ -12,8 +12,12 @@ const minioClient = new Client({
   endPoint: process.env.MINIO_ENDPOINT ?? "localhost",
   port: parseInt(process.env.MINIO_PORT ?? "9000"),
   useSSL: process.env.MINIO_SSL === "true",
-  accessKey: process.env.MINIO_ROOT_USER ?? "minioadmin",
-  secretKey: process.env.MINIO_ROOT_PASSWORD ?? "minioadmin",
+  accessKey:
+    process.env.MINIO_ACCESS_KEY ?? process.env.MINIO_ROOT_USER ?? "minioadmin",
+  secretKey:
+    process.env.MINIO_SECRET_KEY ??
+    process.env.MINIO_ROOT_PASSWORD ??
+    "minioadmin",
 });
 
 // Example function to upload a file using Blob
